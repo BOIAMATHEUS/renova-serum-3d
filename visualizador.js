@@ -5,7 +5,7 @@
 // Eles precisam de tres retratos da cena por quadro, feitos em ordem (ver frame()).
 //
 // O que muda em relacao ao publicado:
-//   - o cartucho e o novo, 35 x 35 x 140, no lugar da caixa antiga de duas pecas
+//   - o cartucho e o novo, 42 x 42 x 140, no lugar da caixa antiga de duas pecas
 //   - o rotulo e o novo, 85 x 40: 77,3% da volta (sobra vidro para ver o liquido) e
 //     cantos arredondados de 3 mm, recortados pelo alfa da faca
 //   - verniz e relevo das DUAS pecas saem das mascaras dos pacotes de impressao:
@@ -92,7 +92,9 @@ gl_FragColor=vec4(color,1.);#include <tonemapping_fragment>
   });
 }
 
-const ESCALA = .102 / .1196;            // mesma proporcao provisoria do visualizador publicado
+// altura real das pecas: cartucho 140 mm, frasco 100 mm. O modelo do frasco termina
+// em .1198 (topo do bulbo), entao a escala fecha a peca em 100 mm exatos.
+const ESCALA = .100 / .1198;
 const matVidro = optico(alvos[2].texture, 1.5, .0015, [.5, .2, .1], 0);
 const matLiquido = optico(alvos[1].texture, 1.333, .025, [78, 17, 6], 1);
 const matPipeta = optico(alvos[0].texture, 1.5, .0004, [0, 0, 0], -1);
@@ -298,15 +300,17 @@ for (let i = 0; i < gC.meshes.length; i++) {
   const nome = (m.name || '').split(' ')[0];
   cartucho.add(new T.Mesh(geo, matCartucho[nome] || matMiolo));
 }
-cartucho.position.set(-.064, 0, -.012);
+// 3,5 mm a mais para a esquerda: metade dos 7 mm que a caixa cresceu, para o vao
+// entre o cartucho e o frasco continuar o mesmo
+cartucho.position.set(-.0675, 0, -.012);
 cartucho.rotation.y = -.20;
 
 // Uma sombra de contato so, cobrindo as duas pecas: ela grava a silhueta REAL vista de
 // baixo, entao o cartucho ganha canto vivo e o frasco ganha a elipse do vidro. Antes o
 // cartucho usava um borrao quadrado desenhado a mao, que entregava o truque.
-const sombra = sombraContato(renderer, scene, {largura: .19, profundidade: .12, altura: .10,
+const sombra = sombraContato(renderer, scene, {largura: .205, profundidade: .13, altura: .10,
   opacidade: .72, escurecer: 2.1, borrao: 1.8, resolucao: 1024});
-sombra.grupo.position.x = -.034;
+sombra.grupo.position.x = -.0375;
 sombra.atualiza();
 
 // ---------------------------------------------------------------- camera e laco
@@ -334,14 +338,14 @@ function olha(alvoX, alvoY, d, px, py, pz) {
 // a lente e de 20 graus: a distancia sai da altura da peca, senao corta em cima e embaixo
 const VISTAS = {
   conjunto: () => { cartucho.visible = true; sombra.atualiza();
-                    olha(-.030, .060, Math.max(.56, .30 / camera.aspect), .10, .092, .99); },
+                    olha(-.034, .058, Math.max(.60, .32 / camera.aspect), .10, .090, .99); },
   frasco:   () => { cartucho.visible = false; sombra.atualiza();
                     olha(0, .050, Math.max(.32, .15 / camera.aspect), 0, .058, 1); },
   cartucho: () => { cartucho.visible = true; sombra.atualiza();
-                    olha(-.064, .070, Math.max(.62, .32 / camera.aspect), -.16, .105, .96); },
+                    olha(-.0675, .070, Math.max(.66, .34 / camera.aspect), -.16, .105, .96); },
   // verniz e relevo so se leem com luz rasante e de perto: o botao ja acende a luz
   acabamentos: () => { cartucho.visible = true; sombra.atualiza(); luzDeAcabamento(true);
-                       olha(0, .030, Math.max(.26, .13 / camera.aspect), .10, .036, .99); }
+                       olha(-.014, .034, Math.max(.33, .17 / camera.aspect), .10, .040, .99); }
 };
 VISTAS.conjunto();
 window.addEventListener('resize', () => { redimensiona(); sujo = true; });
