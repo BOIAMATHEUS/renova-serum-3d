@@ -1,0 +1,48 @@
+<!doctype html><html lang="pt-BR"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex, nofollow"><title>RENOVA BE — Sérum GHK-Cu</title>
+<style>
+:root{--ink:#282725;--muted:#67625b;--line:#d8d3ca;--surface:#f7f5f0}*{box-sizing:border-box}
+body{margin:0;background:#e6e1d8;color:var(--ink);font:13px 'Segoe UI',Arial,sans-serif;overflow:hidden}
+#stage{position:fixed;inset:0}canvas{display:block;width:100%;height:100%;outline:0}
+header{position:absolute;top:34px;left:38px;pointer-events:none}
+.brand{font:25px Georgia,serif;letter-spacing:-1px}
+.eyebrow{text-transform:uppercase;letter-spacing:2px;font-size:10px;color:var(--muted);margin-top:10px}
+aside{position:absolute;right:28px;top:28px;width:238px;background:rgba(247,245,240,.92);backdrop-filter:blur(20px);border:1px solid #ffffff90;padding:22px;border-radius:14px;box-shadow:0 8px 32px #433a2a0d}
+h1{font:22px Georgia,serif;margin:0 0 5px}
+p{color:var(--muted);font-size:11px;line-height:1.6;margin:0}
+label{display:block;font-size:11px;margin:20px 0 9px}
+button,a{font:inherit;color:inherit;border:1px solid var(--line);background:transparent;padding:10px 12px;border-radius:6px;cursor:pointer;text-decoration:none;text-align:center}
+button:hover,a:hover{background:#e9e5dc}
+button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid #656d69;outline-offset:4px}
+button[aria-pressed=true]{background:var(--ink);color:white;border-color:var(--ink)}
+input[type=range]{width:100%;accent-color:#58554d;height:3px;cursor:pointer}
+.par{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.actions{display:grid;gap:8px;margin-top:20px}
+.primary{background:var(--ink);color:white;border-color:var(--ink)}.primary:hover{background:#45423c}
+nav{position:absolute;left:50%;bottom:30px;transform:translateX(-50%);display:flex;gap:5px;padding:7px;background:#f7f5f0ee;backdrop-filter:blur(18px);border:1px solid #ffffffaa;border-radius:12px;box-shadow:0 6px 24px #433a2a0f}
+nav button{border:0;font-size:12px;padding:11px 16px}
+.hint{position:absolute;bottom:40px;left:38px;color:var(--muted);font-size:10px;line-height:1.7}
+#status{position:absolute;inset:0;display:grid;place-items:center;background:#e6e1d8;z-index:4;font-size:12px;letter-spacing:1px}
+#status[hidden]{display:none}
+.capture header,.capture aside,.capture nav,.capture .hint{display:none}
+@media(max-width:860px){header{top:22px;left:22px}.brand{font-size:21px}.hint{display:none}h1{font-size:18px}
+  #stage{bottom:286px}aside{left:16px;right:16px;top:auto;bottom:84px;width:auto;padding:16px}
+  aside h1,aside p{display:none}aside label{margin-top:12px}
+  nav{bottom:16px;max-width:calc(100% - 24px);gap:0}nav button{padding:10px 13px}
+  .capture #stage{bottom:0}.capture aside{display:none}}
+@media(max-height:640px){aside{top:14px;bottom:auto}aside label{margin-top:10px}nav{bottom:14px}}
+</style>
+<div id="stage"></div>
+<header><div class="brand">RENOVA BE</div><div class="eyebrow">Estúdio de embalagem</div></header>
+<aside>
+  <h1>GHK-Cu</h1>
+  <p>Cartucho 35 × 35 × 140 mm<br>Rótulo 85 × 40 mm, faixa à esquerda<br>Verniz e relevo das máscaras de impressão</p>
+  <label for="exposure">Intensidade da luz</label>
+  <input id="exposure" type="range" min="0.65" max="1.45" step=".01" value="1">
+  <div class="actions"><button id="rasante" aria-pressed="false">Luz rasante · acabamentos</button><button id="rotate" aria-pressed="false">Girar 360°</button><button id="save" class="primary">Salvar PNG · 2400 px</button></div>
+</aside>
+<nav aria-label="Vistas"><button id="v-conjunto">Conjunto</button><button id="v-frasco">Frasco</button><button id="v-cartucho">Cartucho</button></nav>
+<div class="hint">Arraste para girar<br>Role para aproximar</div>
+<div id="status">Preparando vidro e líquido…</div>
+<script type="importmap">{"imports":{"three":"./three.module.min.js"}}</script>
+<script type="module" src="visualizador.js?v=6"></script></html>
