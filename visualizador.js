@@ -25,14 +25,17 @@ const renderer = new T.WebGLRenderer({antialias: true, preserveDrawingBuffer: tr
 palco.append(renderer.domElement);
 renderer.setPixelRatio(Math.min(Math.max(devicePixelRatio, 1.5), 2));
 renderer.outputColorSpace = T.SRGBColorSpace;
-renderer.toneMapping = T.NeutralToneMapping; renderer.toneMappingExposure = 1;
+// ACES Filmic: curva de foto de produto. O AgX, testado antes, lavou o papel e o
+// liquido; o Neutral cortava o brilho do verniz seco demais.
+renderer.toneMapping = T.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.15;
 
 const scene = new T.Scene();
 const camera = new T.PerspectiveCamera(20, 1, .005, 3);
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true; controls.enablePan = false;
 controls.minDistance = .16; controls.maxDistance = .9;
-controls.minPolarAngle = .35; controls.maxPolarAngle = 1.62;
+// desce abaixo da linha do horizonte: da para ver o pe das pecas e o fundo do frasco
+controls.minPolarAngle = .30; controls.maxPolarAngle = 1.84;
 controls.autoRotateSpeed = .6;
 
 const alvos = [0, 1, 2].map(() => new T.WebGLRenderTarget(1, 1, {type: T.HalfFloatType, samples: 0}));
@@ -121,10 +124,13 @@ function torno(pontos) {
   const c = new T.SplineCurve(pontos.map(([r, y]) => new T.Vector2(r, y)));
   return new T.LatheGeometry(c.getPoints(240), 192);
 }
-vidros.find(o => o.name.startsWith('Frasco')).geometry = torno([[.0001,0],[.014,0],[.0165,.0008],[.0175,.0028],[.0175,.010],[.0175,.060],[.0175,.066],[.0171,.069],[.0159,.0715],[.0136,.074],[.0103,.0765],[.0087,.0785],[.0087,.083],[.0076,.083],[.0076,.0785],[.0093,.0757],[.0125,.073],[.0148,.0708],[.0162,.068],[.0163,.060],[.0163,.010],[.016,.004],[.014,.0026],[.0001,.0026]]);
-const bulbo = solidos.find(o => o.name.startsWith('Bulbo'));
-bulbo.geometry = torno([[.0001,.097],[.0063,.097],[.00645,.0978],[.0063,.0988],[.0054,.0996],[.00505,.1012],[.0051,.1035],[.00545,.1075],[.00555,.111],[.0053,.1146],[.0045,.1173],[.0031,.119],[.0015,.1197],[.0001,.1198]]);
-bulbo.material = new T.MeshPhysicalMaterial({color: 0xfaf9f8, roughness: .62, metalness: 0, sheen: 1, sheenRoughness: .45, sheenColor: new T.Color(0xffffff), clearcoat: .25, clearcoatRoughness: .35});
+// O frasco e o bulbo NAO vem do GLB: sao gerados aqui por torno, com os perfis de
+// referencia do visualizador publicado. Por isso as duas malhas foram tiradas do
+// arquivo, que caiu de 592 para 220 KB.
+const corpoVidro = new T.Mesh(torno([[.0001,0],[.014,0],[.0165,.0008],[.0175,.0028],[.0175,.010],[.0175,.060],[.0175,.066],[.0171,.069],[.0159,.0715],[.0136,.074],[.0103,.0765],[.0087,.0785],[.0087,.083],[.0076,.083],[.0076,.0785],[.0093,.0757],[.0125,.073],[.0148,.0708],[.0162,.068],[.0163,.060],[.0163,.010],[.016,.004],[.014,.0026],[.0001,.0026]]), matVidro);
+corpoVidro.name = 'Frasco oco vidro'; frasco.add(corpoVidro); vidros.push(corpoVidro);
+const bulbo = new T.Mesh(torno([[.0001,.097],[.0063,.097],[.00645,.0978],[.0063,.0988],[.0054,.0996],[.00505,.1012],[.0051,.1035],[.00545,.1075],[.00555,.111],[.0053,.1146],[.0045,.1173],[.0031,.119],[.0015,.1197],[.0001,.1198]]), new T.MeshPhysicalMaterial({color: 0xfaf9f8, roughness: .62, metalness: 0, sheen: 1, sheenRoughness: .45, sheenColor: new T.Color(0xffffff), clearcoat: .25, clearcoatRoughness: .35}));
+bulbo.name = 'Bulbo branco'; frasco.add(bulbo); solidos.push(bulbo);
 
 // pipeta: tubo fino ate o fundo, estrangulamento curto e bolinha na ponta
 const perfilPipeta = [[.0001,.0084],[.0008,.0086],[.0012,.0091],[.0013,.0098],[.0011,.0105],[.0008,.0111],[.0009,.0117],[.0016,.0125],[.0023,.0134],[.0024,.0142],[.0024,.087]].map(([r, y]) => new T.Vector2(r, y));
@@ -177,13 +183,13 @@ async function tex(arq, cor, viraY = true) {
   t.wrapS = t.wrapT = T.ClampToEdgeWrapping;
   return t;
 }
-const alfaFaca = await tex('rot-alfa.png', false);
+const alfaFaca = await tex('rot-alfa.webp', false);
 const mapasRot = {};
 async function carregaRotulo(lado) {
   if (!mapasRot[lado]) mapasRot[lado] = {
-    cor: await tex(`rot-${lado}-cor.png`, true),
-    verniz: await tex(`rot-${lado}-verniz.png`, false),
-    normal: await tex(`rot-${lado}-normal.png`, false)
+    cor: await tex(`rot-${lado}-cor.webp`, true),
+    verniz: await tex(`rot-${lado}-verniz.webp`, false),
+    normal: await tex(`rot-${lado}-normal.webp`, false)
   };
   return mapasRot[lado];
 }
@@ -238,9 +244,9 @@ function attrC(i) {
 const paineis = ['frente', 'verso', 'topo', 'base', 'direita', 'esquerda'];
 const matCartucho = {};
 for (const nome of paineis) {
-  const cor = await tex(`car-${nome}-cor.png`, true, false);
+  const cor = await tex(`car-${nome}-cor.webp`, true, false);
   let verniz = null, normal = null;
-  if (nome !== 'base') { verniz = await tex(`car-${nome}-verniz.png`, false, false); normal = await tex(`car-${nome}-normal.png`, false, false); }
+  if (nome !== 'base') { verniz = await tex(`car-${nome}-verniz.webp`, false, false); normal = await tex(`car-${nome}-normal.webp`, false, false); }
   matCartucho[nome] = new T.MeshPhysicalMaterial({
     map: cor, roughness: .88, metalness: 0,
     clearcoat: verniz ? 1 : 0, clearcoatMap: verniz, clearcoatRoughness: .035,
@@ -250,6 +256,15 @@ for (const nome of paineis) {
   });
   matCartucho[nome].onBeforeCompile = s => {
     s.fragmentShader = s.fragmentShader.replace('texture2D( map, vMapUv )', 'texture2D( map, vMapUv, -.5 )');
+    // Fibra do cartao, procedural: cartao nao e plastico liso, e a luz rasante precisa
+    // de uma microtextura para quebrar. Assado na textura, o ruido nao comprimia e cada
+    // mapa de normais pulava para 3,9 MB; aqui custa zero byte.
+    s.fragmentShader = s.fragmentShader.replace('#include <normal_fragment_maps>',
+      `#include <normal_fragment_maps>
+       vec2 gUv = vMapUv * vec2(420.0, 1700.0);
+       float g1 = fract(sin(dot(floor(gUv), vec2(12.9898, 78.233))) * 43758.5453);
+       float g2 = fract(sin(dot(floor(gUv + 0.5), vec2(39.3468, 11.1357))) * 24634.6345);
+       normal = normalize(normal + vec3(g1 - 0.5, g2 - 0.5, 0.0) * 0.045);`);
   };
   matCartucho[nome].customProgramCacheKey = () => 'cartucho-' + nome;
 }
@@ -267,16 +282,13 @@ for (let i = 0; i < gC.meshes.length; i++) {
 cartucho.position.set(-.064, 0, -.012);
 cartucho.rotation.y = -.20;
 
-// sombras de contato
-const sombraFrasco = sombraContato(renderer, scene, {largura: .10, profundidade: .10, altura: .11, opacidade: .5, escurecer: 1.6, borrao: 2});
-sombraFrasco.atualiza();
-const lona = document.createElement('canvas'); lona.width = lona.height = 512;
-const cx = lona.getContext('2d');
-cx.filter = 'blur(30px)'; cx.fillStyle = 'rgba(53,45,33,.17)'; cx.fillRect(150, 150, 215, 215);
-cx.filter = 'blur(9px)'; cx.fillStyle = 'rgba(53,45,33,.22)'; cx.fillRect(168, 168, 178, 178);
-const sombraCartucho = new T.Mesh(new T.PlaneGeometry(.12, .12), new T.MeshBasicMaterial({map: new T.CanvasTexture(lona), transparent: true, depthWrite: false}));
-sombraCartucho.rotation.x = -Math.PI / 2; sombraCartucho.position.set(-.064, .00002, -.012);
-sombraCartucho.rotation.z = .20; scene.add(sombraCartucho);
+// Uma sombra de contato so, cobrindo as duas pecas: ela grava a silhueta REAL vista de
+// baixo, entao o cartucho ganha canto vivo e o frasco ganha a elipse do vidro. Antes o
+// cartucho usava um borrao quadrado desenhado a mao, que entregava o truque.
+const sombra = sombraContato(renderer, scene, {largura: .19, profundidade: .12, altura: .10,
+  opacidade: .55, escurecer: 1.75, borrao: 2.1, resolucao: 1024});
+sombra.grupo.position.x = -.034;
+sombra.atualiza();
 
 // ---------------------------------------------------------------- camera e laco
 const mostra = (lista, v) => lista.forEach(o => o.visible = v);
@@ -302,12 +314,15 @@ function olha(alvoX, alvoY, d, px, py, pz) {
 }
 // a lente e de 20 graus: a distancia sai da altura da peca, senao corta em cima e embaixo
 const VISTAS = {
-  conjunto: () => { cartucho.visible = sombraCartucho.visible = true;
+  conjunto: () => { cartucho.visible = true; sombra.atualiza();
                     olha(-.030, .060, Math.max(.56, .30 / camera.aspect), .10, .092, .99); },
-  frasco:   () => { cartucho.visible = sombraCartucho.visible = false;
+  frasco:   () => { cartucho.visible = false; sombra.atualiza();
                     olha(0, .050, Math.max(.32, .15 / camera.aspect), 0, .058, 1); },
-  cartucho: () => { cartucho.visible = sombraCartucho.visible = true;
-                    olha(-.064, .070, Math.max(.62, .32 / camera.aspect), -.16, .105, .96); }
+  cartucho: () => { cartucho.visible = true; sombra.atualiza();
+                    olha(-.064, .070, Math.max(.62, .32 / camera.aspect), -.16, .105, .96); },
+  // verniz e relevo so se leem com luz rasante e de perto: o botao ja acende a luz
+  acabamentos: () => { cartucho.visible = true; sombra.atualiza(); luzDeAcabamento(true);
+                       olha(0, .030, Math.max(.26, .13 / camera.aspect), .10, .036, .99); }
 };
 VISTAS.conjunto();
 window.addEventListener('resize', () => { redimensiona(); sujo = true; });
@@ -316,6 +331,7 @@ controls.addEventListener('change', () => sujo = true);
 document.querySelector('#v-conjunto').onclick = VISTAS.conjunto;
 document.querySelector('#v-frasco').onclick = VISTAS.frasco;
 document.querySelector('#v-cartucho').onclick = VISTAS.cartucho;
+document.querySelector('#v-acabamentos').onclick = VISTAS.acabamentos;
 document.querySelector('#rotate').onclick = e => { controls.autoRotate = !controls.autoRotate; e.currentTarget.setAttribute('aria-pressed', String(controls.autoRotate)); sujo = true; };
 document.querySelector('#exposure').oninput = e => { renderer.toneMappingExposure = Number(e.target.value); sujo = true; };
 // Luz rasante: deita a principal quase no plano da peca. E assim que se confere relevo
@@ -327,14 +343,15 @@ luzRasante2.position.set(-.9, .1, .2); luzRasante2.visible = false; scene.add(lu
 const direcionais = [];
 scene.traverse(o => { if (o.isDirectionalLight && o !== luzRasante && o !== luzRasante2) direcionais.push(o); });
 const intensidadesBase = direcionais.map(l => l.intensity);
-document.querySelector('#rasante').onclick = e => {
-  const liga = e.currentTarget.getAttribute('aria-pressed') !== 'true';
-  e.currentTarget.setAttribute('aria-pressed', String(liga));
+function luzDeAcabamento(liga) {
+  document.querySelector('#rasante').setAttribute('aria-pressed', String(liga));
   luzRasante.visible = luzRasante2.visible = liga;
   direcionais.forEach((l, i) => l.intensity = intensidadesBase[i] * (liga ? .22 : 1));
   scene.environmentIntensity = liga ? .25 : 1;
   sujo = true;
-};
+}
+document.querySelector('#rasante').onclick = e =>
+  luzDeAcabamento(e.currentTarget.getAttribute('aria-pressed') !== 'true');
 document.querySelector('#save').onclick = () => {
   const b = document.querySelector('#save'); b.textContent = 'Salvando…';
   const pr = renderer.getPixelRatio();
@@ -342,7 +359,7 @@ document.querySelector('#save').onclick = () => {
   redimensiona(); sujo = true; quadro();
   renderer.domElement.toBlob(blob => {
     const url = URL.createObjectURL(blob), a = document.createElement('a');
-    a.download = 'renova-serum-ghk-cu.png'; a.href = url; a.click();
+    a.download = 'renova-serum-ghk-cu.webp'; a.href = url; a.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000); b.textContent = 'Salvar PNG · 2400 px';
   }, 'image/png');
   renderer.setPixelRatio(pr); redimensiona(); sujo = true;
