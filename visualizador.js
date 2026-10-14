@@ -44,9 +44,10 @@ function redimensiona() {
   const w = W(), h = H();
   renderer.setSize(w, h); camera.aspect = w / h; camera.updateProjectionMatrix();
   renderer.getDrawingBufferSize(resolucao);
-  // os tres retratos so alimentam o desvio do raio, que ja sai borrado: meia resolucao
-  // nao muda o que se ve e corta 3/4 do preenchimento de tres das quatro passadas
-  alvos.forEach(t => t.setSize(Math.max(2, resolucao.x >> 1), Math.max(2, resolucao.y >> 1)));
+  // Os retratos acompanham a resolucao de desenho, que ja cai pela metade enquanto gira
+  // (pixelRatio 1) e volta ao dobro parado (pixelRatio 2). Fixar meia resolucao aqui foi
+  // o que serrilhou a linha do liquido, porque e por eles que o vidro ve o que esta atras.
+  alvos.forEach(t => t.setSize(resolucao.x, resolucao.y));
 }
 redimensiona();
 
@@ -347,7 +348,7 @@ window.addEventListener('resize', () => { redimensiona(); sujo = true; });
 // Girando desenha em 1x, parado volta para 2x: e parado que o texto pequeno precisa de
 // nitidez. A versao anterior trocava o pixelRatio mas nao redimensionava os retratos,
 // entao eles continuavam no tamanho grande e o ganho era zero.
-const PR_PARADO = Math.min(Math.max(devicePixelRatio, 1.5), 2), PR_MOVENDO = 1;
+const PR_PARADO = Math.min(Math.max(devicePixelRatio, 2), 2), PR_MOVENDO = 1;
 let prAtual = PR_PARADO, ultimoMovimento = 0;
 function trocaResolucao(pr) {
   if (pr === prAtual) return;
