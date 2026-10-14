@@ -27,7 +27,7 @@ renderer.setPixelRatio(Math.min(Math.max(devicePixelRatio, 1.5), 2));
 renderer.outputColorSpace = T.SRGBColorSpace;
 // ACES Filmic: curva de foto de produto. O AgX, testado antes, lavou o papel e o
 // liquido; o Neutral cortava o brilho do verniz seco demais.
-renderer.toneMapping = T.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.15;
+renderer.toneMapping = T.ACESFilmicToneMapping; renderer.toneMappingExposure = .92;
 
 const scene = new T.Scene();
 const camera = new T.PerspectiveCamera(20, 1, .005, 3);
@@ -44,14 +44,16 @@ function redimensiona() {
   const w = W(), h = H();
   renderer.setSize(w, h); camera.aspect = w / h; camera.updateProjectionMatrix();
   renderer.getDrawingBufferSize(resolucao);
-  alvos.forEach(t => t.setSize(resolucao.x, resolucao.y));
+  // os tres retratos so alimentam o desvio do raio, que ja sai borrado: meia resolucao
+  // nao muda o que se ve e corta 3/4 do preenchimento de tres das quatro passadas
+  alvos.forEach(t => t.setSize(Math.max(2, resolucao.x >> 1), Math.max(2, resolucao.y >> 1)));
 }
 redimensiona();
 
 const env = await new RGBELoader().loadAsync('./studio.hdr');
 env.mapping = T.EquirectangularReflectionMapping; scene.environment = env;
 fundo(scene);
-scene.add(new T.HemisphereLight(0xffffff, 0xaaa5a0, .55));
+scene.add(new T.HemisphereLight(0xffffff, 0xaaa5a0, .34));
 luzes(scene);
 
 // ---------------------------------------------------------------- vidro, liquido, pipeta
@@ -120,9 +122,11 @@ for (const m of gF.meshes) {
 }
 
 // perfis de referencia do publicado: ombro redondo escorrendo para um gargalo estreito
+// 96 x 96 em vez de 240 x 192: o frasco tem 300 pixels de largura na tela, a silhueta
+// fica igual e sai de 92 mil triangulos para 18 mil
 function torno(pontos) {
   const c = new T.SplineCurve(pontos.map(([r, y]) => new T.Vector2(r, y)));
-  return new T.LatheGeometry(c.getPoints(240), 192);
+  return new T.LatheGeometry(c.getPoints(96), 96);
 }
 // O frasco e o bulbo NAO vem do GLB: sao gerados aqui por torno, com os perfis de
 // referencia do visualizador publicado. Por isso as duas malhas foram tiradas do
@@ -326,7 +330,21 @@ const VISTAS = {
 };
 VISTAS.conjunto();
 window.addEventListener('resize', () => { redimensiona(); sujo = true; });
-controls.addEventListener('change', () => sujo = true);
+// Girando desenha em 1x, parado volta para 2x: e parado que o texto pequeno precisa de
+// nitidez. A versao anterior trocava o pixelRatio mas nao redimensionava os retratos,
+// entao eles continuavam no tamanho grande e o ganho era zero.
+const PR_PARADO = Math.min(Math.max(devicePixelRatio, 1.5), 2), PR_MOVENDO = 1;
+let prAtual = PR_PARADO, ultimoMovimento = 0;
+function trocaResolucao(pr) {
+  if (pr === prAtual) return;
+  prAtual = pr; renderer.setPixelRatio(pr); redimensiona(); sujo = true;
+}
+controls.addEventListener('start', () => { ultimoMovimento = performance.now(); trocaResolucao(PR_MOVENDO); });
+controls.addEventListener('change', () => { ultimoMovimento = performance.now(); sujo = true; });
+setInterval(() => {
+  if (controls.autoRotate) trocaResolucao(PR_MOVENDO);
+  else if (performance.now() - ultimoMovimento > 400) trocaResolucao(PR_PARADO);
+}, 150);
 
 document.querySelector('#v-conjunto').onclick = VISTAS.conjunto;
 document.querySelector('#v-frasco').onclick = VISTAS.frasco;
