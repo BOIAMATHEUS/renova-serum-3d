@@ -27,7 +27,7 @@ renderer.setPixelRatio(Math.min(Math.max(devicePixelRatio, 1.5), 2));
 renderer.outputColorSpace = T.SRGBColorSpace;
 // ACES Filmic: curva de foto de produto. O AgX, testado antes, lavou o papel e o
 // liquido; o Neutral cortava o brilho do verniz seco demais.
-renderer.toneMapping = T.ACESFilmicToneMapping; renderer.toneMappingExposure = .92;
+renderer.toneMapping = T.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.12;
 
 const scene = new T.Scene();
 const camera = new T.PerspectiveCamera(20, 1, .005, 3);
@@ -52,9 +52,23 @@ redimensiona();
 
 const env = await new RGBELoader().loadAsync('./studio.hdr');
 env.mapping = T.EquirectangularReflectionMapping; scene.environment = env;
-fundo(scene);
-scene.add(new T.HemisphereLight(0xffffff, 0xaaa5a0, .34));
-luzes(scene);
+// Fundo proprio, mais fechado que o do estudio padrao: o cartucho e branco e o rotulo
+// tambem, entao o fundo precisa cair para a peca recortar em vez de derreter nele.
+(function fundoContrastado() {
+  const c = document.createElement('canvas'); c.width = c.height = 1024;
+  const x = c.getContext('2d');
+  const g = x.createRadialGradient(512, 430, 40, 512, 520, 820);
+  g.addColorStop(0, '#e2dcd4'); g.addColorStop(.45, '#c6bfb6'); g.addColorStop(1, '#8d8780');
+  x.fillStyle = g; x.fillRect(0, 0, 1024, 1024);
+  const tex = new T.CanvasTexture(c); tex.colorSpace = T.SRGBColorSpace; scene.background = tex;
+})();
+// Uma principal mandando, preenchimento so para o lado escuro nao fechar, e contraluz
+// para separar a borda do fundo. Nada de hemisferica: era ela que chapava tudo.
+const principal = new T.DirectionalLight(0xfff7ec, 3.0); principal.position.set(-.24, .46, .58); scene.add(principal);
+const preenchimento = new T.DirectionalLight(0xdfe8f5, .10); preenchimento.position.set(.62, .12, .18); scene.add(preenchimento);
+const contraluz = new T.DirectionalLight(0xffffff, 1.35); contraluz.position.set(-.12, .40, -.62); scene.add(contraluz);
+scene.add(new T.HemisphereLight(0xffffff, 0x8e877f, .09));
+scene.environmentIntensity = .38;
 
 // ---------------------------------------------------------------- vidro, liquido, pipeta
 const vertex = `varying vec3 wp;varying vec3 wn;void main(){vec4 w=modelMatrix*vec4(position,1.);wp=w.xyz;wn=normalize(mat3(modelMatrix)*normal);gl_Position=projectionMatrix*viewMatrix*w;}`;
@@ -290,7 +304,7 @@ cartucho.rotation.y = -.20;
 // baixo, entao o cartucho ganha canto vivo e o frasco ganha a elipse do vidro. Antes o
 // cartucho usava um borrao quadrado desenhado a mao, que entregava o truque.
 const sombra = sombraContato(renderer, scene, {largura: .19, profundidade: .12, altura: .10,
-  opacidade: .55, escurecer: 1.75, borrao: 2.1, resolucao: 1024});
+  opacidade: .72, escurecer: 2.1, borrao: 1.8, resolucao: 1024});
 sombra.grupo.position.x = -.034;
 sombra.atualiza();
 
@@ -365,7 +379,7 @@ function luzDeAcabamento(liga) {
   document.querySelector('#rasante').setAttribute('aria-pressed', String(liga));
   luzRasante.visible = luzRasante2.visible = liga;
   direcionais.forEach((l, i) => l.intensity = intensidadesBase[i] * (liga ? .22 : 1));
-  scene.environmentIntensity = liga ? .25 : 1;
+  scene.environmentIntensity = liga ? .18 : .38;
   sujo = true;
 }
 document.querySelector('#rasante').onclick = e =>
