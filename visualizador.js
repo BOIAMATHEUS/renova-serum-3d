@@ -354,7 +354,10 @@ window.addEventListener('resize', () => { redimensiona(); sujo = true; });
 // Girando desenha em 1x, parado volta para 2x: e parado que o texto pequeno precisa de
 // nitidez. A versao anterior trocava o pixelRatio mas nao redimensionava os retratos,
 // entao eles continuavam no tamanho grande e o ganho era zero.
-const PR_PARADO = Math.min(Math.max(devicePixelRatio, 2), 2), PR_MOVENDO = 1;
+const PR_PARADO = Math.min(Math.max(devicePixelRatio, 2), 2);
+// girando desenhava na metade da densidade, e o degrau ao soltar o mouse saltava
+// aos olhos. 1,5 fica perto o bastante de 2 para a troca passar despercebida
+const PR_MOVENDO = 1.5;
 let prAtual = PR_PARADO, ultimoMovimento = 0;
 function trocaResolucao(pr) {
   if (pr === prAtual) return;
