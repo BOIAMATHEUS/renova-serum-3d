@@ -44,10 +44,13 @@ function redimensiona() {
   const w = W(), h = H();
   renderer.setSize(w, h); camera.aspect = w / h; camera.updateProjectionMatrix();
   renderer.getDrawingBufferSize(resolucao);
-  // Os retratos acompanham a resolucao de desenho, que ja cai pela metade enquanto gira
-  // (pixelRatio 1) e volta ao dobro parado (pixelRatio 2). Fixar meia resolucao aqui foi
-  // o que serrilhou a linha do liquido, porque e por eles que o vidro ve o que esta atras.
-  alvos.forEach(t => t.setSize(resolucao.x, resolucao.y));
+  // Os retratos acompanham a resolucao de desenho, mas a 70% do lado: sao vistos ATRAVES
+  // do vidro, ja distorcidos, e a metade dos pixels neles tira tres quartos do custo de
+  // cada quadro sem aparecer. Meia resolucao cravada (0,5) foi o que serrilhou a linha
+  // do liquido numa tentativa anterior; 0,7 fica longe desse limite.
+  const RETRATO = 0.7;
+  alvos.forEach(t => t.setSize(Math.max(2, Math.round(resolucao.x * RETRATO)),
+                               Math.max(2, Math.round(resolucao.y * RETRATO))));
 }
 redimensiona();
 
@@ -321,6 +324,7 @@ function quadro() {
   controls.update();
   if (!sujo && !controls.autoRotate) return;
   sujo = false;
+  marcaQuadro(performance.now());
   mostra(vidros, false); mostra(liquidos, false); mostra(rotulos, false); mostra(internos, false);
   renderer.setRenderTarget(alvos[0]); renderer.render(scene, camera);
   mostra(internos, true);
@@ -355,20 +359,55 @@ window.addEventListener('resize', () => { redimensiona(); sujo = true; });
 // nitidez. A versao anterior trocava o pixelRatio mas nao redimensionava os retratos,
 // entao eles continuavam no tamanho grande e o ganho era zero.
 const PR_PARADO = Math.min(Math.max(devicePixelRatio, 2), 2);
-// girando desenhava na metade da densidade, e o degrau ao soltar o mouse saltava
-// aos olhos. 1,5 fica perto o bastante de 2 para a troca passar despercebida
-const PR_MOVENDO = 1.5;
+// Em movimento a densidade nao e fixa: ela SE AJUSTA a maquina de quem abriu. Um valor
+// cravado erra dos dois lados, sobrando em maquina forte e sufocando a fraca. Aqui o
+// proprio tempo de quadro decide, entre 0,75 e a densidade cheia.
+const PR_MIN = 0.75, PR_PASSO = 0.25;
+const QUADRO_LENTO = 22, QUADRO_FOLGADO = 13;   // ms: 45 fps e 75 fps
+let prMovendo = Math.min(1.5, PR_PARADO);
 let prAtual = PR_PARADO, ultimoMovimento = 0;
 function trocaResolucao(pr) {
+  pr = Math.round(pr * 100) / 100;
   if (pr === prAtual) return;
   prAtual = pr; renderer.setPixelRatio(pr); redimensiona(); sujo = true;
 }
-controls.addEventListener('start', () => { ultimoMovimento = performance.now(); trocaResolucao(PR_MOVENDO); });
+// media movel do tempo de quadro, so enquanto a cena se mexe
+let mediaQuadro = 16, ultimoQuadro = 0;
+function marcaQuadro(agora) {
+  if (ultimoQuadro) {
+    const dt = agora - ultimoQuadro;
+    if (dt < 500) mediaQuadro += (dt - mediaQuadro) * 0.12;   // amortecida
+  }
+  ultimoQuadro = agora;
+}
+// carencia e votos: trocar de densidade custa realocar os tres retratos, entao so
+// muda depois de leituras seguidas no mesmo sentido e com 1,2 s desde a ultima troca
+let ultimaTroca = 0, votos = 0;
+const CARENCIA = 1200, VOTOS = 3;
+function ajustaDensidade() {
+  const agora = performance.now();
+  const lento = mediaQuadro > QUADRO_LENTO, folgado = mediaQuadro < QUADRO_FOLGADO;
+  if (!lento && !folgado) { votos = 0; return; }
+  const sentido = lento ? -1 : 1;
+  votos = (votos > 0 === sentido > 0) ? votos + sentido : sentido;
+  if (Math.abs(votos) < VOTOS || agora - ultimaTroca < CARENCIA) return;
+  const alvo = sentido < 0 ? Math.max(PR_MIN, prMovendo - PR_PASSO)
+                           : Math.min(PR_PARADO, prMovendo + PR_PASSO);
+  votos = 0;
+  if (alvo === prMovendo) return;
+  prMovendo = alvo; ultimaTroca = agora; mediaQuadro = 16;
+  trocaResolucao(prMovendo);
+}
+controls.addEventListener('start', () => { ultimoMovimento = performance.now(); trocaResolucao(prMovendo); });
 controls.addEventListener('change', () => { ultimoMovimento = performance.now(); sujo = true; });
 setInterval(() => {
-  if (controls.autoRotate) trocaResolucao(PR_MOVENDO);
-  else if (performance.now() - ultimoMovimento > 400) trocaResolucao(PR_PARADO);
+  const mexendo = controls.autoRotate || performance.now() - ultimoMovimento <= 400;
+  if (mexendo) { trocaResolucao(prMovendo); ajustaDensidade(); }
+  else { trocaResolucao(PR_PARADO); ultimoQuadro = 0; }
 }, 150);
+// o visualizador expoe o estado, para dar para medir de fora sem adivinhar
+window.serum3dDesempenho = () => ({pixelRatio: prAtual, emMovimento: prMovendo,
+                                   quadroMs: Math.round(mediaQuadro * 10) / 10});
 
 document.querySelector('#v-conjunto').onclick = VISTAS.conjunto;
 document.querySelector('#v-frasco').onclick = VISTAS.frasco;
