@@ -320,18 +320,30 @@ sombra.atualiza();
 
 // ---------------------------------------------------------------- camera e laco
 const mostra = (lista, v) => lista.forEach(o => o.visible = v);
+// Arrastando, os tres retratos da refracao nao mudam o bastante de um quadro para o
+// outro para justificar quatro desenhos da cena inteira em cada um. A cada 3 quadros o
+// vidro continua lendo o mundo certo e o custo do arrasto cai para perto de um quarto.
+// Parado PASSO_RETRATO nao vale: ali o desenho e unico e tem de sair exato.
+const PASSO_RETRATO = 3;
+let contaQuadro = 0, retratosProntos = false;
 function quadro() {
   controls.update();
   if (!sujo && !controls.autoRotate) return;
   sujo = false;
-  marcaQuadro(performance.now());
-  mostra(vidros, false); mostra(liquidos, false); mostra(rotulos, false); mostra(internos, false);
-  renderer.setRenderTarget(alvos[0]); renderer.render(scene, camera);
-  mostra(internos, true);
-  renderer.setRenderTarget(alvos[1]); renderer.render(scene, camera);
-  mostra(liquidos, true);
-  renderer.setRenderTarget(alvos[2]); renderer.render(scene, camera);
-  mostra(vidros, true); mostra(rotulos, true);
+  const agora = performance.now();
+  marcaQuadro(agora);
+  const mexendo = controls.autoRotate || agora - ultimoMovimento <= 400;
+  const refaz = !retratosProntos || !mexendo || (contaQuadro++ % PASSO_RETRATO) === 0;
+  if (refaz) {
+    mostra(vidros, false); mostra(liquidos, false); mostra(rotulos, false); mostra(internos, false);
+    renderer.setRenderTarget(alvos[0]); renderer.render(scene, camera);
+    mostra(internos, true);
+    renderer.setRenderTarget(alvos[1]); renderer.render(scene, camera);
+    mostra(liquidos, true);
+    renderer.setRenderTarget(alvos[2]); renderer.render(scene, camera);
+    mostra(vidros, true); mostra(rotulos, true);
+    retratosProntos = true;
+  }
   renderer.setRenderTarget(null); renderer.render(scene, camera);
 }
 function olha(alvoX, alvoY, d, px, py, pz) {
@@ -364,7 +376,7 @@ const PR_PARADO = Math.min(Math.max(devicePixelRatio, 2), 2);
 // proprio tempo de quadro decide, entre 0,75 e a densidade cheia.
 const PR_MIN = 0.75, PR_PASSO = 0.25;
 const QUADRO_LENTO = 22, QUADRO_FOLGADO = 13;   // ms: 45 fps e 75 fps
-let prMovendo = Math.min(1.5, PR_PARADO);
+let prMovendo = Math.min(1, PR_PARADO);
 let prAtual = PR_PARADO, ultimoMovimento = 0;
 function trocaResolucao(pr) {
   pr = Math.round(pr * 100) / 100;
@@ -400,10 +412,15 @@ function ajustaDensidade() {
 }
 controls.addEventListener('start', () => { ultimoMovimento = performance.now(); trocaResolucao(prMovendo); });
 controls.addEventListener('change', () => { ultimoMovimento = performance.now(); sujo = true; });
+let estavaMexendo = false;
 setInterval(() => {
   const mexendo = controls.autoRotate || performance.now() - ultimoMovimento <= 400;
   if (mexendo) { trocaResolucao(prMovendo); ajustaDensidade(); }
-  else { trocaResolucao(PR_PARADO); ultimoQuadro = 0; }
+  else {
+    trocaResolucao(PR_PARADO); ultimoQuadro = 0;
+    if (estavaMexendo) sujo = true;   // o quadro limpo, com os retratos refeitos
+  }
+  estavaMexendo = mexendo;
 }, 150);
 // o visualizador expoe o estado, para dar para medir de fora sem adivinhar
 window.serum3dDesempenho = () => ({pixelRatio: prAtual, emMovimento: prMovendo,
