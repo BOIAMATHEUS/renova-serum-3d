@@ -229,7 +229,7 @@ async function poeRotulo(lado) {
     rotulo.name = 'Rotulo';
     // texto pequeno continua legivel de longe
     rotulo.material.onBeforeCompile = s => {
-      s.fragmentShader = s.fragmentShader.replace('texture2D( map, vMapUv )', 'texture2D( map, vMapUv, -.8 )');
+      s.fragmentShader = s.fragmentShader.replace('texture2D( map, vMapUv )', 'texture2D( map, vMapUv, -1.6 )');
     };
     rotulo.material.customProgramCacheKey = () => 'rotulo-renova';
     frasco.add(rotulo); rotulos.push(rotulo);
@@ -276,7 +276,9 @@ for (const nome of paineis) {
     ior: 1.46, specularIntensity: .3
   });
   matCartucho[nome].onBeforeCompile = s => {
-    s.fragmentShader = s.fragmentShader.replace('texture2D( map, vMapUv )', 'texture2D( map, vMapUv, -.5 )');
+    // vies de LOD: pega um mipmap mais nitido. A textura e reduzida 4,3x na vista
+    // padrao, e sem isto o mipmap entrega uma versao ja borrada do texto de bula
+    s.fragmentShader = s.fragmentShader.replace('texture2D( map, vMapUv )', 'texture2D( map, vMapUv, -1.4 )');
     // Fibra do cartao, procedural: cartao nao e plastico liso, e a luz rasante precisa
     // de uma microtextura para quebrar. Assado na textura, o ruido nao comprimia e cada
     // mapa de normais pulava para 3,9 MB; aqui custa zero byte.
@@ -338,11 +340,11 @@ function olha(alvoX, alvoY, d, px, py, pz) {
 // a lente e de 20 graus: a distancia sai da altura da peca, senao corta em cima e embaixo
 const VISTAS = {
   conjunto: () => { cartucho.visible = true; sombra.atualiza();
-                    olha(-.034, .054, Math.max(.56, .30 / camera.aspect), .10, .082, .99); },
+                    olha(-.034, .052, Math.max(.45, .245 / camera.aspect), .10, .074, .99); },
   frasco:   () => { cartucho.visible = false; sombra.atualiza();
-                    olha(0, .050, Math.max(.32, .15 / camera.aspect), 0, .058, 1); },
+                    olha(0, .048, Math.max(.26, .125 / camera.aspect), 0, .052, 1); },
   cartucho: () => { cartucho.visible = true; sombra.atualiza();
-                    olha(-.0675, .063, Math.max(.60, .31 / camera.aspect), -.16, .095, .96); },
+                    olha(-.0675, .062, Math.max(.47, .245 / camera.aspect), -.16, .080, .96); },
   // verniz e relevo so se leem com luz rasante e de perto: o botao ja acende a luz
   acabamentos: () => { cartucho.visible = true; sombra.atualiza(); luzDeAcabamento(true);
                        olha(-.014, .034, Math.max(.33, .17 / camera.aspect), .10, .040, .99); }
