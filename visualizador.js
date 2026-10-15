@@ -328,6 +328,17 @@ const PASSO_RETRATO = 3;
 let contaQuadro = 0, retratosProntos = false;
 function quadro() {
   controls.update();
+  tiques++;                      // conta TODO tique do rAF, inclusive os que nao desenham
+  // o tique logo apos um quadro parado diz quanto ele custou de verdade
+  if (esperaParado) {
+    ultimoParadoMs = performance.now() - esperaParado;
+    esperaParado = 0;
+    if (ultimoParadoMs > PARADO_CARO && PR_PARADO > PR_PARADO_MIN) {
+      PR_PARADO = Math.max(PR_PARADO_MIN, Math.round((PR_PARADO - 0.25) * 100) / 100);
+      if (prMovendo > PR_PARADO) prMovendo = PR_PARADO;
+      trocaResolucao(PR_PARADO);
+    }
+  }
   if (!sujo && !controls.autoRotate) return;
   sujo = false;
   const agora = performance.now();
@@ -335,6 +346,7 @@ function quadro() {
   const mexendo = controls.autoRotate || agora - ultimoMovimento <= 400;
   const refaz = !retratosProntos || !mexendo || (contaQuadro++ % PASSO_RETRATO) === 0;
   if (refaz) {
+    var custou = !mexendo;
     mostra(vidros, false); mostra(liquidos, false); mostra(rotulos, false); mostra(internos, false);
     renderer.setRenderTarget(alvos[0]); renderer.render(scene, camera);
     mostra(internos, true);
@@ -345,6 +357,11 @@ function quadro() {
     retratosProntos = true;
   }
   renderer.setRenderTarget(null); renderer.render(scene, camera);
+  // o quadro parado e o caro: quatro desenhos na densidade cheia. Quem le o custo e o
+  // tique seguinte, la em cima: a marca e o INICIO deste tique, para medir o intervalo
+  // inteiro. Marcar depois de desenhar mediria o que falta ate o vsync, que encurta
+  // justamente quando o quadro demora.
+  if (custou) esperaParado = agora;
 }
 function olha(alvoX, alvoY, d, px, py, pz) {
   controls.autoRotate = false;
@@ -370,7 +387,13 @@ window.addEventListener('resize', () => { redimensiona(); sujo = true; });
 // Girando desenha em 1x, parado volta para 2x: e parado que o texto pequeno precisa de
 // nitidez. A versao anterior trocava o pixelRatio mas nao redimensionava os retratos,
 // entao eles continuavam no tamanho grande e o ganho era zero.
-const PR_PARADO = Math.min(Math.max(devicePixelRatio, 2), 2);
+let PR_PARADO = Math.min(Math.max(devicePixelRatio, 2), 2);
+// piso da nitidez parada: abaixo disso o texto miudo do rotulo comeca a sumir
+const PR_PARADO_MIN = 1;
+// Intervalo de tique a tique em volta do quadro parado. Cabendo no orcamento da ~16,7 ms;
+// 80 ms quer dizer que ele atravessou varios vsyncs e virou tranco visivel ao soltar o mouse.
+const PARADO_CARO = 80;
+let ultimoParadoMs = 0, esperaParado = 0;
 // Em movimento a densidade nao e fixa: ela SE AJUSTA a maquina de quem abriu. Um valor
 // cravado erra dos dois lados, sobrando em maquina forte e sufocando a fraca. Aqui o
 // proprio tempo de quadro decide, entre 0,75 e a densidade cheia.
@@ -384,13 +407,16 @@ function trocaResolucao(pr) {
   prAtual = pr; renderer.setPixelRatio(pr); redimensiona(); sujo = true;
 }
 // media movel do tempo de quadro, so enquanto a cena se mexe
-let mediaQuadro = 16, ultimoQuadro = 0;
+let mediaQuadro = 16, ultimoQuadro = 0, tiques = 0, tiqueDoUltimo = -9;
 function marcaQuadro(agora) {
-  if (ultimoQuadro) {
+  // So conta o vao quando os dois desenhos sairam em tiques SEGUIDOS. Vao que pulou
+  // tique vazio e espera pelo mouse, nao custo de desenho.
+  const seguidos = tiques - tiqueDoUltimo === 1;
+  if (ultimoQuadro && seguidos) {
     const dt = agora - ultimoQuadro;
     if (dt < 500) mediaQuadro += (dt - mediaQuadro) * 0.12;   // amortecida
   }
-  ultimoQuadro = agora;
+  ultimoQuadro = agora; tiqueDoUltimo = tiques;
 }
 // carencia e votos: trocar de densidade custa realocar os tres retratos, entao so
 // muda depois de leituras seguidas no mesmo sentido e com 1,2 s desde a ultima troca
@@ -424,6 +450,8 @@ setInterval(() => {
 }, 150);
 // o visualizador expoe o estado, para dar para medir de fora sem adivinhar
 window.serum3dDesempenho = () => ({pixelRatio: prAtual, emMovimento: prMovendo,
+                                   parado: PR_PARADO,
+                                   paradoMs: Math.round(ultimoParadoMs),
                                    quadroMs: Math.round(mediaQuadro * 10) / 10});
 
 document.querySelector('#v-conjunto').onclick = VISTAS.conjunto;
